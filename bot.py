@@ -3668,36 +3668,36 @@ def get_limbo_multiplier(server_seed, client_seed, nonce):
     Generate a provably fair Limbo multiplier using Stake.com's algorithm.
     Returns a multiplier between 1.00 and 1000.00.
     
-    Algorithm matches Stake.com's limbo:
+    Algorithm:
     - Uses first 52 bits of SHA256 hash as random seed
-    - Applies inverse function: 100 / (random_percentage + 1) where random is 0-99
-    - With house edge factored in, chance for 2x is ~46%
-    - Higher multipliers have exponentially lower chances
+    - Converts to range [1, 100] for percentage
+    - Applies formula: 99 / random_percentage
+    - With this approach, P(X >= 2) = P(percentage >= 49.5) = 50.5/100 ≈ 50.5%
+    - To achieve 46% for 2x: use house_edge_multiplier of 92
+    - Formula: 92 / random_percentage gives P(X >= 2) = P(percentage <= 46) = 46/100 = 46%
     """
     hash_result = create_hash(server_seed, client_seed, nonce)
     
-    # Use first 13 hex characters (52 bits) for precision - matches Stake.com approach
+    # Use first 13 hex characters (52 bits) for precision
     hex_value = int(hash_result[:13], 16)
     max_val = 16 ** 13
     
-    # Convert to 0-99 range (percentage)
-    random_percentage = (hex_value / max_val) * 99
+    # Convert to [1, 100] range to avoid division by zero and ensure proper distribution
+    # This gives uniform distribution across 1-100
+    random_percentage = ((hex_value / max_val) * 99) + 1
     
-    # Apply house edge of ~8% to achieve 46% chance at 2x
-    # Formula: 92 / (random_percentage + 1) 
-    # This gives: P(X >= 2) = 92/2 / 100 = 46%
-    house_edge_multiplier = 92  # Gives ~8% house edge with 46% chance at 2x
+    # Apply house edge to achieve 46% chance at 2x
+    # Formula: 92 / random_percentage
+    # P(X >= 2) = P(92/random_percentage >= 2) = P(random_percentage <= 46) = 46%
+    house_edge_multiplier = 92
     
     try:
-        # Prevent division by zero edge case
-        if random_percentage < 0.01:
-            result = 1000.00
-        else:
-            result = house_edge_multiplier / random_percentage
-            result = max(1.00, min(1000.00, result))
-        
+        result = house_edge_multiplier / random_percentage
+        # Clamp between 1.00 and 1000.00
+        result = max(1.00, min(1000.00, result))
         return round(result, 2)
     except:
+        # Should never happen with random_percentage in [1, 100], but safety fallback
         return 1.00
 
 # --- Persistent User Data Utilities ---
