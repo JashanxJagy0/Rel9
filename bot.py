@@ -3670,11 +3670,13 @@ def get_limbo_multiplier(server_seed, client_seed, nonce):
     
     Algorithm:
     - Uses first 52 bits of SHA256 hash as random seed
-    - Converts to range [1, 100] for percentage
-    - Applies formula: 99 / random_percentage
-    - With this approach, P(X >= 2) = P(percentage >= 49.5) = 50.5/100 ≈ 50.5%
-    - To achieve 46% for 2x: use house_edge_multiplier of 92
-    - Formula: 92 / random_percentage gives P(X >= 2) = P(percentage <= 46) = 46/100 = 46%
+    - Converts to range [1, 100] for percentage (uniform distribution)
+    - Applies formula: house_edge_multiplier / random_percentage
+    - With house_edge_multiplier=92:
+      * P(X >= 2) = P(92/random_percentage >= 2) = P(random_percentage <= 46)
+      * Since random_percentage is uniformly distributed in [1, 100]:
+      * P(random_percentage <= 46) = 46/100 = 46%
+    - Higher multipliers have exponentially lower chances (e.g., P(X >= 10) ≈ 9.2%)
     """
     hash_result = create_hash(server_seed, client_seed, nonce)
     
@@ -3683,12 +3685,12 @@ def get_limbo_multiplier(server_seed, client_seed, nonce):
     max_val = 16 ** 13
     
     # Convert to [1, 100] range to avoid division by zero and ensure proper distribution
-    # This gives uniform distribution across 1-100
+    # This gives uniform distribution across 1-100 (inclusive)
     random_percentage = ((hex_value / max_val) * 99) + 1
     
     # Apply house edge to achieve 46% chance at 2x
-    # Formula: 92 / random_percentage
-    # P(X >= 2) = P(92/random_percentage >= 2) = P(random_percentage <= 46) = 46%
+    # With house_edge_multiplier=92 and uniform random_percentage in [1, 100]:
+    # P(X >= 2) = P(random_percentage <= 46) = 46 out of 100 values = 46%
     house_edge_multiplier = 92
     
     try:
